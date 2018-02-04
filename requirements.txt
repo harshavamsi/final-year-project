@@ -1,3 +1,6 @@
+lxml
+xlrd
+pandas
 urllib3
 bs4
 selenium

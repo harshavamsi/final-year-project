@@ -23,7 +23,7 @@ page = http.request('GET', link)
 soup = BeautifulSoup(page.data)
 hh = webdriver.ChromeOptions()
 hh.add_argument("--start-maximized")
-driver = webdriver.Chrome()
+driver = webdriver.Firefox()
 driver.get(link)  # opening the link in the driver .
 locations = soup.find_all('select', id='listItems')
 print locations

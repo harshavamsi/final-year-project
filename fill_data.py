@@ -43,7 +43,8 @@ def mod_data():
     for file in files:
         newfile = file.replace("KARNATAKA_",'')
         os.rename(file,newfile)
-months = ['random', ]
+
+months = ['random','JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEPT','OCT','NOV','DEC']
 
 def insert_data():
     df=pd.read_csv('price_data/ragi-2014.csv',header=None)
@@ -55,7 +56,13 @@ def insert_data():
     i=1
     for date in df[1]:
         samp = date.partition('/')[2].rsplit('/', 4)
-        month = samp[0]
+        if samp[:1][0][:1] == '0':
+            month = samp[:1][0][1:2]
+        else:
+            month = samp[:1][0]
+        year = 1
+        dist = df[0][i]
+
         df[5][i] = samp[0]
         df[3][i]= samp[0]
         i=i+1;

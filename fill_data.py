@@ -44,6 +44,7 @@ def mod_data():
         newfile = file.replace("KARNATAKA_",'')
         os.rename(file,newfile)
 months = ['random', ]
+
 def insert_data():
     df=pd.read_csv('price_data/ragi-2014.csv',header=None)
     k=df.apply(set)
@@ -59,6 +60,7 @@ def insert_data():
         df[3][i]= samp[0]
         i=i+1;
     print df
+
 # rem_dep()
 # conv_csv()
 # rem_extra()

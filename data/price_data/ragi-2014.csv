@@ -1,4 +1,4 @@
-district,arrival date,Avg price,rainfall,soil_ph,month,year
+district,arrival date,Avg price,rainfall,month,year
 Bangalore,03/01/2014,1900,,
 Bangalore,03/01/2014,1900,,
 Bangalore,04/01/2014,1900,,
@@ -1114,7 +1114,6 @@ Kolar,30/10/2014,1600,,
 Kolar,24/02/2014,2000,,
 Kolar,17/03/2014,1800,,
 Kolar,24/06/2014,2000,,
-Madikeri(Kodagu),24/03/2014,1250,,
 Mandya,24/06/2014,1400,,
 Mandya,25/06/2014,1400,,
 Mandya,26/06/2014,1400,,

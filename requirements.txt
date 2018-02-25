@@ -1,5 +1,11 @@
+tensorflow
+keras
+scipy
+tqdm
+statsmodels
 matplotlib
 sklearn
+numpy
 lxml
 xlrd
 pandas

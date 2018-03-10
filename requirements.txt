@@ -13,3 +13,5 @@ urllib3
 bs4
 selenium
 pyodbc
+h5py
+pandas-datareader

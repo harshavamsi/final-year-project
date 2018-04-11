@@ -5,9 +5,12 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
 from math import sqrt
+import matplotlib as mpl
+mpl.use('TkAgg')
 from matplotlib import pyplot
 import numpy
-
+import os
+from glob import glob
 
 def timeseries_to_supervised(data, lag=1):
 	df = pd.DataFrame(data)
@@ -70,78 +73,116 @@ def forecast_lstm(model, batch_size, X):
 	return yhat[0,0]
 
 # load dataset
-csv_data = pd.read_csv('../Data/coinbaseUSD_1-min_data_2014-12-01_to_2018-01-08.csv')
-csv_data['date'] = pd.to_datetime(csv_data['Timestamp'],unit='s').dt.date
-group = csv_data.groupby('date')
-series = group['Weighted_Price'].mean()
-# print(series.head())
-series.to_csv("ouput.csv", sep=',', encoding='utf-8')
-prediction_days = 365
+states =['andhrapradesh'',haryana'	,	'madhyapradesh',	'	punjab',
+'arunachalpradesh',	'himachalpradesh',	'maharastra	','	rajasthan',
+'bihar'		,	'jammukashmir'	,	'manipur'	,	'tamilnadu',
+'chattisgarh'	,	'jharkhand'	,	'meghalaya'	,	'telangana',
+'goa'		,	'karnataka'	,	'nagaland'	,	'tripura',
+'gujarat	',	'kerala'	,	'	nctofdelhi'	,	'uttrakhand'
+]
+crops = ['azhar'	,	'cowpea'	,	'greenpeas'	,'lentil',	'	rice',	'	wheat',
+'blackgram',	'greengram',	'kabulichana',	'maize',		'soya','		whitepeas']
+columns = ['place','place1', 'place2', 'type 1', 'type 2', 'vol', 'min', 'max', 'modal', 'date']
+folders = glob("../data/*/")
+for folder in folders:
+    main_folder = folder + '*'
+    print main_folder
+    if not os.path.exists(folder+'output/'):
+        os.mkdir(folder+'output/')
+    files = glob(main_folder)
+    for file in files:
+        output_folder = folder + 'output'
+        csv_file = file.replace(".csv","")
+        file_name = csv_file.replace(folder,"")
+        output_file = folder+'output/'+file_name+'_output.csv'
+        print output_file
+        if os.path.exists(output_file) or file == output_folder:
+            continue
+        else:
+            print file
+            csv_file = file.replace(".csv","")
+            csv_data = pd.read_csv(file, header = None, names = columns)
+            print csv_data.head()
+            csv_data['date'] = pd.to_datetime(csv_data['date']).dt.date
+            group = csv_data.groupby('date')
+            series = group['modal'].mean()
+            print len(series)
+            if len(series) > 1101:
+                new_series = series[-1101:]
 
-# transform data to be stationary
-raw_values = series.values
-diff_values = difference(raw_values, 1)
+            else:
+                new_series = series
+            raw_values = new_series.values
+            print raw_values
+            prediction_days = 365
+            # print(series.head())
+            file_name = csv_file.replace(folder,"")
+            output_file = folder+'output/'+file_name+'_output.csv'
+            new_series.to_csv(output_file, sep=',', encoding='utf-8')
+            print len(new_series)
 
-# Blue_values = series[len(series)-prediction_days:]
-# df_Blue = pd.DataFrame(Blue_values)
-# df_Blue.to_csv("Blue_values.csv", sep=',', encoding='utf-8')
+            # transform data to be stationary
 
-# transform data to be supervised learning
-supervised = timeseries_to_supervised(diff_values, 1)
-supervised_values = supervised.values
+            diff_values = difference(raw_values, 1)
+            supervised = timeseries_to_supervised(diff_values, 1)
+            supervised_values = supervised.values
 
-# split data into train and test-sets
+            # split data into train and test-sets
+            print len(new_series)-prediction_days
+            train, test = supervised_values[:len(new_series)-prediction_days], supervised_values[len(new_series)-prediction_days:]
 
-train, test = supervised_values[:len(series)-prediction_days], supervised_values[len(series)-prediction_days:]
+            # transform the scale of the data
+            scaler, train_scaled, test_scaled = scale(train, test)
+            # print len(train_scaled)
+            # print len(test_scaled)
+            # fit the model
+            lstm_model = fit_lstm(train_scaled, 1, 100, 4)
 
-# transform the scale of the data
-scaler, train_scaled, test_scaled = scale(train, test)
+            # forecast the entire training dataset to build up state for forecasting
+            train_reshaped = train_scaled[:, 0].reshape(len(train_scaled), 1, 1)
+            lstm_model.predict(train_reshaped, batch_size=1)
 
-# fit the model
-lstm_model = fit_lstm(train_scaled, 1, 500, 4)
+            # walk-forward validation on the test data
+            predictions = list()
+            for i in range(len(test_scaled)):
 
-# forecast the entire training dataset to build up state for forecasting
-train_reshaped = train_scaled[:, 0].reshape(len(train_scaled), 1, 1)
-lstm_model.predict(train_reshaped, batch_size=1)
+                # make one-step forecast
+                X, y = test_scaled[i, 0:-1], test_scaled[i, -1]
+                yhat = forecast_lstm(lstm_model, 1, X)
+                # invert scaling
+                yhat = invert_scale(scaler, X, yhat)
+                # invert differencing
+                yhat = inverse_difference(raw_values, yhat, len(test_scaled)+1-i)
+                # store forecast
+                predictions.append(yhat)
+                expected = raw_values[len(train) + i + 1]
+                print('Day=%d, Predicted=%f, Expected=%f' % (i+1, yhat, expected))
 
-# walk-forward validation on the test data
-predictions = list()
-for i in range(len(test_scaled)):
-	# make one-step forecast
-	X, y = test_scaled[i, 0:-1], test_scaled[i, -1]
-	yhat = forecast_lstm(lstm_model, 1, X)
-	# invert scaling
-	yhat = invert_scale(scaler, X, yhat)
-	# invert differencing
-	yhat = inverse_difference(raw_values, yhat, len(test_scaled)+1-i)
-	# store forecast
-	predictions.append(yhat)
-	expected = raw_values[len(train) + i + 1]
-	print('Day=%d, Predicted=%f, Expected=%f' % (i+1, yhat, expected))
+                # report performance
+                # print len(raw_values[len(new_series)-prediction_days+1:])
+                # print len(predictions)
+            rmse = sqrt(mean_squared_error(raw_values[len(new_series)-prediction_days+1:], predictions))
+            print('Test RMSE: %.3f' % rmse)
+                # line plot of observed vs predicted
 
-# report performance
-rmse = sqrt(mean_squared_error(raw_values[len(series)-prediction_days+1:], predictions))
-print('Test RMSE: %.3f' % rmse)
-# line plot of observed vs predicted
-
-# data = {'date':raw_values[len(series)-prediction_days:] , 'values':predictions }
-# df_output = pd.DataFrame(data)
-# columns = [df.shift(i) for i in range(1, lag+1)]
-# columns.append(df)
-# df = pd.concat(columns, axis=1)
-
-
-# Blue_values = series[len(series)-prediction_days:]
-# df_Blue = pd.DataFrame(Blue_values)
-# df_Blue.to_csv("Blue_values.csv", sep=',', encoding='utf-8')
+                # data = {'date':raw_values[len(series)-prediction_days:] , 'values':predictions }
+                # df_output = pd.DataFrame(data)
+                # columns = [df.shift(i) for i in range(1, lag+1)]
+                # columns.append(df)
+                # df = pd.concat(columns, axis=1)
 
 
-Orange_values = predictions
-df_orange = pd.DataFrame(Orange_values)
-df_orange.to_csv("Orange_values.csv", sep=',', encoding='utf-8')
+            Blue_values = new_series[len(new_series)-prediction_days:]
+            df_Blue = pd.DataFrame(Blue_values)
+            blue_name = folder+'output/'+file_name+'_blue.csv'
+            df_Blue.to_csv(blue_name, sep=',', encoding='utf-8')
 
-# print(raw_values[len(series)-prediction_days:])
-pyplot.plot(raw_values[len(series)-prediction_days:])
-pyplot.plot(predictions)
-pyplot.savefig('completeLSTM.png', format='png')
-pyplot.show()
+
+            Orange_values = predictions
+            df_orange = pd.DataFrame(Orange_values)
+            orange_name = folder+'output/'+file_name+'_orange.csv'
+            df_orange.to_csv(orange_name, sep=',', encoding='utf-8')
+
+                # print(raw_values[len(series)-prediction_days:])
+
+
